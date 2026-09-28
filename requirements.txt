@@ -1,5 +1,4 @@
 beautifulsoup4
-flask
 gradio
 joblib
 openai

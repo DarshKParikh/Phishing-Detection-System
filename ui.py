@@ -1,3 +1,15 @@
+"""
+PhishScan user interface.
+
+This is the project's single user-facing interface. It loads the trained
+phishing_model.joblib model, extracts the same features used during training
+through phishing_scraper.analyze_url(), and uses the trained classifier to
+predict whether a submitted website is phishing or legitimate.
+
+Run:
+    python3 ui.py
+"""
+
 import os
 import joblib
 import pandas as pd
@@ -82,10 +94,18 @@ def scan_url(url: str):
         legit_prob    = round(float(probabilities[0]) * 100, 1)
 
         # ── Step 3: format verdict ──
-        if prediction == 1:
-            verdict = f"🚨  PHISHING  ({phishing_prob}% confidence)"
+        # Avoid turning a borderline model probability into an absolute verdict.
+        # The trained model remains the source of the probability; these bands
+        # only make the UI more cautious about uncertain predictions.
+        if phishing_prob >= 75:
+            verdict = f"🚨  LIKELY PHISHING  ({phishing_prob}% phishing probability)"
+        elif phishing_prob >= 40:
+            verdict = (
+                f"⚠️  NEEDS REVIEW  "
+                f"({phishing_prob}% phishing / {legit_prob}% legitimate)"
+            )
         else:
-            verdict = f"✅  LEGITIMATE  ({legit_prob}% confidence)"
+            verdict = f"✅  LIKELY LEGITIMATE  ({legit_prob}% legitimate probability)"
 
         # ── Step 4: probability breakdown for the label component ──
         label_data = {
@@ -155,7 +175,7 @@ No new logic — the same model, the same signals.
         scan_button = gr.Button("Analyze", variant="primary", scale=1)
 
     verdict_output = gr.Textbox(
-        label="Model verdict",
+        label="Model assessment",
         interactive=False,
         lines=1,
     )
