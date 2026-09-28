@@ -1,0 +1,12 @@
+beautifulsoup4
+flask
+gradio
+joblib
+openai
+openpyxl
+pandas
+python-dotenv
+python-whois
+requests
+scikit-learn
+tldextract
