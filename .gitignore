@@ -1,2 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
 .env
+
+# Model and data files (large, regeneratable)
+phishing_model.joblib
+labeled_dataset.csv
+labeled_dataset.xlsx
+phishing_features.csv
+phishing_features.xlsx
+gpt_phishing_results.csv
+
+# Debug files
+DEBUG files/
+
+# macOS
 .DS_Store
