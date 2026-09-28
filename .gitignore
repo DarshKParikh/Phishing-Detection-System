@@ -1,2 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Environment / secrets
 .env
-.env
+
+# Generated datasets
+data/processed/
+*.xlsx
+
+# Logs
+*.log
+
+# Temporary/debug files
+debug/
+DEBUG/
