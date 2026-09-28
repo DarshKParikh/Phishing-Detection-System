@@ -1,39 +1,15 @@
 Phishing-Website-Scraper/
-├── app.py                         # keep here for now
-├── phishing_scraper.py            # keep here for now
-├── train_model.py                 # keep here for now
-├── gpt_phishing_analyzer.py       # keep here for now
-├── ui.py                          # keep here for now
-├── .env.example
-├── .gitignore
+├── app.py
+├── phishing_scraper.py
+├── train_model.py
+├── gpt_phishing_analyzer.py
+├── ui.py
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── README.md
 ├── MIGRATION.md
-│
-├── app/
-│   └── README.md
-│
-├── data/
-│   ├── raw/
-│   │   └── README.md
-│   └── processed/
-│       └── README.md
-│
-├── models/
-│   └── README.md
-│
-├── scripts/
-│   ├── README.md
-│   └── migrate_cleanup.py
-│
-├── tests/
-│   ├── test_project_structure.py
-│   └── test_feature_columns.py
-│
-└── docs/
-    ├── architecture.md
-    ├── dataset_schema.md
-    ├── features.md
-    ├── methodology.md
-    └── security.md
+└── FOLDER_STRUCTURE.txt
+
+Generated during normal use:
+├── labeled_dataset.csv
+└── phishing_model.joblib
