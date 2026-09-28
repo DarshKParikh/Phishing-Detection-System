@@ -89,7 +89,7 @@ def features_to_df(features: dict) -> pd.DataFrame:
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('phishscan.html')
 
 
 @app.route('/analyze', methods=['POST'])
