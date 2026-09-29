@@ -1,12 +1,10 @@
 """
-PhishScan user interface.
+PhishScan UI
 
-This is the project's single user-facing interface. It loads the trained
-phishing_model.joblib model, extracts the same features used during training
-through phishing_scraper.analyze_url(), and uses the trained classifier to
-predict whether a submitted website is phishing or legitimate.
+Loads the trained phishing model and uses phishing_scraper.py
+to analyse URLs and predict whether they are phishing or legitimate.
 
-Run:
+Run with:
     python3 ui.py
 """
 
@@ -15,7 +13,7 @@ import joblib
 import pandas as pd
 import gradio as gr
 
-# ── Import existing pipeline ──────────────────────────────────────────
+# Import URL analyser
 try:
     from phishing_scraper import analyze_url
 except ImportError:
@@ -24,7 +22,8 @@ except ImportError:
         "Make sure ui.py is in the same directory as phishing_scraper.py."
     )
 
-# ── Load trained model ────────────────────────────────────────────────
+
+# Load model
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "phishing_model.joblib")
 
 try:
@@ -36,7 +35,8 @@ except FileNotFoundError:
         "Run train_model.py first, then start the UI."
     )
 
-# ── Feature columns — must exactly match train_model.py ──────────────
+
+# Features used by the model
 FEATURE_COLUMNS = [
     "url_length",
     "num_dots",
@@ -59,23 +59,19 @@ FEATURE_COLUMNS = [
 
 
 def features_to_df(features: dict) -> pd.DataFrame:
-    """Builds the exact DataFrame shape the model was trained on."""
-    row = {col: (features.get(col) if features.get(col) is not None else 0)
-           for col in FEATURE_COLUMNS}
+    """Convert extracted features into the format expected by the model."""
+    row = {
+        col: features.get(col) if features.get(col) is not None else 0
+        for col in FEATURE_COLUMNS
+    }
     return pd.DataFrame([row])
 
 
-# ── Core prediction function ──────────────────────────────────────────
-
 def scan_url(url: str):
-    """
-    Called by Gradio on every button click.
+    """Analyse a URL and return the model results."""
 
-    Runs the full pipeline from phishing_scraper.py, then feeds the
-    resulting features into the trained model. Returns four values
-    that map to the four Gradio output components below.
-    """
     url = url.strip()
+
     if not url:
         return "⚠ Please enter a URL.", {}, "", ""
 
@@ -83,73 +79,108 @@ def scan_url(url: str):
         url = "https://" + url
 
     try:
-        # ── Step 1: full feature extraction (same as training) ──
+        # Extract URL features
         features = analyze_url(url)
 
-        # ── Step 2: ML prediction ──
+        # Make prediction
         X = features_to_df(features)
-        prediction   = int(model.predict(X)[0])
+        prediction = int(model.predict(X)[0])
         probabilities = model.predict_proba(X)[0]
-        phishing_prob = round(float(probabilities[1]) * 100, 1)
-        legit_prob    = round(float(probabilities[0]) * 100, 1)
 
-        # ── Step 3: format verdict ──
-        # Avoid turning a borderline model probability into an absolute verdict.
-        # The trained model remains the source of the probability; these bands
-        # only make the UI more cautious about uncertain predictions.
+        phishing_prob = round(float(probabilities[1]) * 100, 1)
+        legit_prob = round(float(probabilities[0]) * 100, 1)
+
+        # Create verdict
         if phishing_prob >= 75:
-            verdict = f"🚨  LIKELY PHISHING  ({phishing_prob}% phishing probability)"
+            verdict = (
+                f"🚨 LIKELY PHISHING "
+                f"({phishing_prob}% phishing probability)"
+            )
+
         elif phishing_prob >= 40:
             verdict = (
-                f"⚠️  NEEDS REVIEW  "
-                f"({phishing_prob}% phishing / {legit_prob}% legitimate)"
+                f"⚠️ NEEDS REVIEW "
+                f"({phishing_prob}% phishing / "
+                f"{legit_prob}% legitimate)"
             )
-        else:
-            verdict = f"✅  LIKELY LEGITIMATE  ({legit_prob}% legitimate probability)"
 
-        # ── Step 4: probability breakdown for the label component ──
+        else:
+            verdict = (
+                f"✅ LIKELY LEGITIMATE "
+                f"({legit_prob}% legitimate probability)"
+            )
+
+        # Confidence scores
         label_data = {
-            "Phishing":    phishing_prob / 100,
-            "Legitimate":  legit_prob    / 100,
+            "Phishing": phishing_prob / 100,
+            "Legitimate": legit_prob / 100,
         }
 
-        # ── Step 5: rule-based reasons (from phishing_scraper.py) ──
+        # Rule-based warnings
         reasons_raw = features.get("risk_reasons", "")
+
         if reasons_raw:
             reasons_text = "\n".join(
-                f"  {r.strip()}" for r in reasons_raw.split(";") if r.strip()
+                f"  {reason.strip()}"
+                for reason in reasons_raw.split(";")
+                if reason.strip()
             )
         else:
             reasons_text = "  No rules fired — URL passed all heuristic checks."
 
-        # ── Step 6: feature detail table ──
+        # Feature details
         detail_rows = [
-            ("HTTPS",              "✓ Yes" if features.get("uses_https") else "✗ No"),
-            ("Free hosting",       "⚠ Yes" if features.get("on_free_hosting") else "✓ No"),
-            ("Brand impersonation","⚠ Yes" if features.get("impersonates_brand") else "✓ No"),
-            ("Matched brand",      features.get("matched_brand") or "—"),
-            ("Suspicious keyword", "⚠ Yes" if features.get("has_suspicious_keyword") else "✓ No"),
-            ("Page fetched",       "✓ Yes" if features.get("fetch_succeeded") else "✗ No"),
-            ("Domain age",         f"{features['domain_age_days']} days"
-                                   if features.get("domain_age_days") is not None
-                                   else "Unknown"),
-            ("Subdomain entropy",  str(features.get("subdomain_entropy", "—"))),
-            ("Rule-based score",   str(features.get("risk_score", "—"))),
-            ("Forms on page",      str(features.get("num_forms", "—"))),
-            ("Password field",     "Yes" if features.get("has_password_field") else "No"),
-            ("External form",      "Yes" if features.get("form_posts_externally") else "No"),
+            ("HTTPS",
+             "✓ Yes" if features.get("uses_https") else "✗ No"),
+
+            ("Free hosting",
+             "⚠ Yes" if features.get("on_free_hosting") else "✓ No"),
+
+            ("Brand impersonation",
+             "⚠ Yes" if features.get("impersonates_brand") else "✓ No"),
+
+            ("Matched brand",
+             features.get("matched_brand") or "—"),
+
+            ("Suspicious keyword",
+             "⚠ Yes" if features.get("has_suspicious_keyword") else "✓ No"),
+
+            ("Page fetched",
+             "✓ Yes" if features.get("fetch_succeeded") else "✗ No"),
+
+            ("Domain age",
+             f"{features['domain_age_days']} days"
+             if features.get("domain_age_days") is not None
+             else "Unknown"),
+
+            ("Subdomain entropy",
+             str(features.get("subdomain_entropy", "—"))),
+
+            ("Rule-based score",
+             str(features.get("risk_score", "—"))),
+
+            ("Forms on page",
+             str(features.get("num_forms", "—"))),
+
+            ("Password field",
+             "Yes" if features.get("has_password_field") else "No"),
+
+            ("External form",
+             "Yes" if features.get("form_posts_externally") else "No"),
         ]
 
-        table = "\n".join(f"  {k:<22} {v}" for k, v in detail_rows)
+        table = "\n".join(
+            f"  {name:<22} {value}"
+            for name, value in detail_rows
+        )
 
         return verdict, label_data, reasons_text, table
 
     except Exception as exc:
-        return f"❌  Error: {exc}", {}, "", ""
+        return f"❌ Error: {exc}", {}, "", ""
 
 
-# ── Gradio interface ──────────────────────────────────────────────────
-
+# Build Gradio interface
 with gr.Blocks(
     title="PhishScan — URL Threat Analyzer",
     theme=gr.themes.Base(
@@ -161,9 +192,9 @@ with gr.Blocks(
 
     gr.Markdown("""
 # 🔍 PhishScan — URL Threat Analyzer
-Paste any URL and your trained **RandomForestClassifier** will assess it
-using the same feature extraction pipeline from `phishing_scraper.py`.
-No new logic — the same model, the same signals.
+
+Paste a URL below and the trained **RandomForestClassifier**
+will analyse it for signs of phishing.
     """)
 
     with gr.Row():
@@ -172,7 +203,12 @@ No new logic — the same model, the same signals.
             label="URL to analyze",
             scale=4,
         )
-        scan_button = gr.Button("Analyze", variant="primary", scale=1)
+
+        scan_button = gr.Button(
+            "Analyze",
+            variant="primary",
+            scale=1,
+        )
 
     verdict_output = gr.Textbox(
         label="Model assessment",
@@ -186,12 +222,14 @@ No new logic — the same model, the same signals.
     )
 
     with gr.Row():
+
         with gr.Column():
             reasons_output = gr.Textbox(
                 label="Rules fired (rule-based scorer)",
                 interactive=False,
                 lines=6,
             )
+
         with gr.Column():
             detail_output = gr.Textbox(
                 label="Signal breakdown",
@@ -201,20 +239,32 @@ No new logic — the same model, the same signals.
 
     gr.Markdown("""
 ---
-**How this works:**
-The URL is passed to `analyze_url()` from `phishing_scraper.py` — which fetches the page,
-runs WHOIS/RDAP, and extracts all features. Those features are then fed directly into
-`phishing_model.joblib` (your trained RandomForest). Nothing here is reimplemented;
-this UI is just a window into the existing pipeline.
+**How it works:**  
+The URL is analysed using `phishing_scraper.py`, which extracts
+features such as HTTPS usage, domain information, suspicious keywords
+and page behaviour. These features are then passed into the trained
+Random Forest model to generate the prediction.
     """)
 
-    # Wire up inputs → function → outputs
-    outputs = [verdict_output, confidence_output, reasons_output, detail_output]
+    outputs = [
+        verdict_output,
+        confidence_output,
+        reasons_output,
+        detail_output,
+    ]
 
-    scan_button.click(fn=scan_url, inputs=url_input, outputs=outputs)
-    url_input.submit(fn=scan_url, inputs=url_input, outputs=outputs)
+    scan_button.click(
+        fn=scan_url,
+        inputs=url_input,
+        outputs=outputs,
+    )
 
-    # Example URLs to try straight from the interface
+    url_input.submit(
+        fn=scan_url,
+        inputs=url_input,
+        outputs=outputs,
+    )
+
     gr.Examples(
         examples=[
             ["https://www.google.com"],
